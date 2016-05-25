@@ -17,6 +17,7 @@ Distributed under the Boost Software License, Version 1.0.
 #include <utility>
 #include <callable_traits/args.hpp>
 #include <callable_traits/result_of.hpp>
+#include <callable_traits/function_type.hpp>
 
 namespace bind_parser {
 
@@ -824,6 +825,7 @@ namespace bind_parser {
         struct bind_expression_parser
         {
             static constexpr const bool value = false;
+
             using arg_types = invalid_type;
             using return_type = invalid_type;
             using function_type = invalid_type;
@@ -854,6 +856,15 @@ namespace bind_parser {
         };
     }
 
+    template<typename BindExpr>
+    using args = typename detail::bind_expression_parser<BindExpr>::args;
+
+    template<typename BindExpr>
+    using result_of = typename detail::bind_expression_parser<BindExpr>::return_type;
+
+    template<typename BindExpr>
+    using function_type = typename detail::bind_expression_parser<BindExpr>::function_type;
+
     template<typename T, typename... Args>
     inline constexpr auto
     bind(T&& t, Args&&... args) ->
@@ -865,14 +876,41 @@ namespace bind_parser {
         };
     }
 
-    template<typename BindExpr>
-    using args = typename detail::bind_expression_parser<BindExpr>::args;
+    // make_function turns a non-overloaded callable into a type-erased std::function object
+    template<typename T>
+    inline decltype(auto) make_function(T&& t) {
 
-    template<typename BindExpr>
-    using result_of = typename detail::bind_expression_parser<BindExpr>::return_type;
+        using no_ref = typename ::std::remove_reference<T>::type;
+        using f = ::callable_traits::function_type<no_ref>;
+        return ::std::function<f>{ ::std::forward<T>(t) };
+    }
 
-    template<typename BindExpr>
-    using function_type = typename detail::bind_expression_parser<BindExpr>::function_type;
+    // this make_function overload turns a bind expression into a type-erased std::function object
+    template<typename T, typename First, typename... Others>
+    inline decltype(auto) make_function(T&& t, First&& first, Others&&... others) {
+
+        // bind_parser::bind is a compile-time parser of placeholder expressions,
+        // for the purpose of retaining more type information than std::bind normally
+        // allows - specifically,  bind_parser::bind is used to determine the de-facto
+        // signature of the std::bind return type, with special considerations for
+        // conversions between reused placeholders and nested placeholder expressions.
+        //  For the sake of convenience, bind_parser::bind is also a thin forwarding
+        // wrapper around std::bind.
+
+        using bind_expr = decltype( ::bind_parser::bind(
+                ::std::forward<T>(t),
+                ::std::forward<First>(first),
+                ::std::forward<Others>(others)...
+        ));
+
+        using f = ::bind_parser::function_type<bind_expr>;
+
+        return ::std::function<f>{ ::std::bind(
+                ::std::forward<T>(t),
+                ::std::forward<First>(first),
+                ::std::forward<Others>(others)...
+        )};
+    }
 }
 
 #endif //#ifndef BIND_PARSER_HPP

@@ -3,15 +3,14 @@ Copyright Barrett Adair 2016
 Distributed under the Boost Software License, Version 1.0.
 (See accompanying file LICENSE.md or copy at http ://boost.org/LICENSE_1_0.txt)
 ->*/
-    
-#undef NDEBUG
 
+#undef NDEBUG
 #include <cassert>
 #include <functional>
 
-#include "make_function.hpp"
+#include "bind_parser.hpp"
 
-using namespace example;
+using namespace bind_parser;
 using namespace std::placeholders;
 
 int add(int i, int j) {
